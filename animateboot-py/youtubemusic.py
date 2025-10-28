@@ -4,7 +4,7 @@ from ytmusicapi import YTMusic
 ytmusic = YTMusic()
 
 # 搜索歌曲
-search_query = "Imagine Dragons - Believer"
+search_query = "「Majestic Catastrophe」佐佐木李子"
 search_results = ytmusic.search(search_query)
 
 # 打印返回的匹配结果
