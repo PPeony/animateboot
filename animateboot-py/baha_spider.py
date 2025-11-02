@@ -1,6 +1,7 @@
 import json
 import os
 import traceback
+from youtubemusic import search_in_youtube
 
 from bs4 import BeautifulSoup, Tag
 
@@ -17,14 +18,12 @@ except FileNotFoundError:
 soup = BeautifulSoup(html_content, 'html.parser')
 
 # 查找目标结构<div class="MSG-list8C">
-div = soup.find('div', class_='MSG-list8C')
+div_list = soup.find_all('div', class_='MSG-list8C')
 
-if not div:
+if not div_list:
     print("错误: 未找到 class='MSG-list8C' 的 div 标签。")
     exit()
 
-# 在<div class="MSG-list8C">下查找第3个<tr>的第2个<td>的文本内容
-table_list = div.find_all('table')
 res = []
 
 
@@ -64,78 +63,83 @@ def find(tbody, type: str):
         for row in rows:
             cells = row.find_all('td')
             for i, cell in enumerate(cells):
-                # 使用 .get_text(strip=True) 比较，更安全
-                if cell.get_text(strip=True) == type:
-                    if i + 1 < len(cells):
-                        next_cell = cells[i + 1]
-                        ep = {}
-                        ep['ep_id'] = -1
-                        # === 这就是修复 ===
-                        # 使用辅助函数确保我们得到的是字符串
-                        ep['text'] = get_font_text(next_cell)
-                        result_list.append(ep)
-                        return result_list  # 找到 OP，立即返回
-                    else:
-                        return result_list  # 找到 "OP" 但没有下一个单元格，返回空列表
+                cell_text = cell.get_text(strip=True)
+                if cell_text.startswith('OP') and len(cell_text) < 5:  # 应该是 OD1, OD2这种，长度判断为了过滤掉 “OP 發售日 2025.07.16”
+                    op = {}
+                    op['ep_id'] = -1
+                    next_cell = cells[i + 1]
+
+                    op['text'] = get_font_text(next_cell)
+                    op['youtube'] = search_in_youtube(op['text'])
+
+                    result_list.append(op)
         return result_list  # 遍历完也没找到 "OP"，返回空列表
 
     # --- 处理 ED (只有当 type == "ED" 时才会运行到这里) ---
     for row in rows:
         cells = row.find_all('td')
         for i, cell in enumerate(cells):
-            cell_text = cell.get_text(strip=True)  # 清理过的单元格文本
+            cell_text = cell.get_text(strip=True)
             if cell_text.startswith('EP'):
                 if i + 1 < len(cells):
                     ep = {}
                     ep['ep_id'] = cell_text
                     next_cell = cells[i + 1]
 
-                    # 同样使用辅助函数
                     ep['text'] = get_font_text(next_cell)
+                    ep['youtube'] = search_in_youtube(ep['text'])
 
                     result_list.append(ep)
-            elif cell_text.startswith('ED'):
+            elif cell_text.startswith('ED') and len(cell_text) < 5: # 应该是 ED1, ED2这种，长度判断为了过滤掉 “ED 發售日 2025.07.16”
                 ep = {}
                 ep['ep_id'] = -1
                 next_cell = cells[i + 1]
 
-                # 同样使用辅助函数
                 ep['text'] = get_font_text(next_cell)
+                ep['youtube'] = search_in_youtube(ep['text'])
 
                 result_list.append(ep)
 
     return result_list  # 返回所有找到的 ED
 
 
-for tbl in table_list:
-    # 2. 为每个条目创建一个字典
-    anime_data = {}
-    name = ""  # 用于错误追踪
-    try:
-        tbody = tbl.find('tbody')
-        if not tbody:
-            continue  # 跳过没有 tbody 的 table
+# 在<div class="MSG-list8C">下查找第3个<tr>的第2个<td>的文本内容
 
-        # 获取名称
-        name_cell = tbody.find('tr').find('td')
-        if name_cell:
-            name = name_cell.get_text(strip=True)
-            anime_data['name'] = name
-        else:
-            anime_data['name'] = "未知名称"
+for div in div_list:
+    table_list = div.find_all('table')
+    for tbl in table_list:
+        # 2. 为每个条目创建一个字典
+        anime_data = {}
+        name = ""  # 用于错误追踪
+        try:
+            tbody = tbl.find('tbody')
+            if not tbody:
+                continue  # 跳过没有 tbody 的 table
 
-        # 获取 OP (现在返回一个列表)
-        anime_data['op'] = find(tbody, "OP")
+            # 获取名称
+            tr_list = tbody.find_all('tr')
+            name_cell = tr_list[0].find('td')
+            if name_cell:
+                name = name_cell.get_text(strip=True)
+                anime_data['name'] = name
+                anime_data['jp_name'] = ''
+                if len(tr_list) > 1 and tr_list[1] and tr_list[1].find('td'):
+                    anime_data['jp_name'] = tr_list[1].find('td').get_text(strip=True)
+            else:
+                anime_data['name'] = "未知名称"
 
-        # 获取 ED (现在返回一个列表)
-        anime_data['ed'] = find(tbody, "ED")
+            # 获取 OP (现在返回一个列表)
+            anime_data['op'] = find(tbody, "OP")
 
-        # 3. 将字典追加到结果列表
-        res.append(anime_data)
+            # 获取 ED (现在返回一个列表)
+            anime_data['ed'] = find(tbody, "ED")
 
-    except Exception as e:
-        traceback.print_exc()
-        print(f"处理条目时出错: '{name}'")
+            # 3. 将字典追加到结果列表
+            res.append(anime_data)
+
+        except Exception as e:
+            traceback.print_exc()
+            print(f"处理条目时出错: '{name}'")
 
 # 4. 在循环结束后，将整个列表转为 JSON 字符串
 json_output = json.dumps(res, ensure_ascii=False, indent=2)
