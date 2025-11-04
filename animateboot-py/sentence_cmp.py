@@ -43,7 +43,7 @@ def cmp_s1_s2(s1, s2):
     end = time.time()
     # print(f"相似度得分: {cosine_score:.4f}")
     # print(f'cost time {end - start}')
-    return cosine_score > 0.7
+    return cosine_score > 0.8
 # 2. 准备你的句子
 # sentence1 = "男女之间存在纯友情吗"
 # sentence2 = "男女之间存在纯友谊吗"

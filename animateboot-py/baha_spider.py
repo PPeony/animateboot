@@ -26,12 +26,14 @@ if not div_list:
 
 res = []
 
+from bs4 import Tag, NavigableString
+
 
 def get_font_text(cell_tag: Tag) -> str:
     """
-    一个健壮的辅助函数：
     安全地从 <td> 标签内的第一个 <font> 标签中，
-    提取第一个 *直接的* 文本内容。
+    提取第一个 <a> 标签 *之前* 的所有文本内容。
+    异常情况可以参考test用例
     """
     if not cell_tag:
         return ""
@@ -39,18 +41,25 @@ def get_font_text(cell_tag: Tag) -> str:
     first_font = cell_tag.find('font')
 
     if first_font:
-        # 1. 寻找第一个直接的文本节点，recursive=False 确保不进入子标签
-        text_node = first_font.find(text=True, recursive=False)
 
-        if text_node:
-            # 2. 找到了，清理并返回
-            return text_node.strip()
-        else:
-            # 3. Fallback：如果<font>里没有直接文本 (例如 <font><b>text</b></font>)
-            #    就获取 <font> 里的所有文本
-            return first_font.get_text(strip=True)
+        texts = []
+
+        for node in first_font.descendants:
+
+            if node.name == 'a':
+                break
+
+            if isinstance(node, NavigableString):
+                texts.append(str(node))
+
+        # 4. 将收集到的所有文本片段连接起来
+        full_text = "".join(texts)
+
+        cleaned_text = " ".join(full_text.split()).strip()
+
+        return cleaned_text
+
     else:
-        # 4. Fallback：如果 <td> 里根本没有 <font> 标签
         return cell_tag.get_text(strip=True)
 
 
