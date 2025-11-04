@@ -3,7 +3,7 @@ import { Box, CssBaseline, ThemeProvider, createTheme, Typography, useMediaQuery
 import './App.css';
 import Sidebar from './components/Sidebar';
 import AnimeList from './components/AnimeList';
-import { getAnimeData } from './services/api';
+import { getAnimeData, getSeasons } from './services/api';
 
 // 创建主题
 const theme = createTheme({
@@ -22,27 +22,19 @@ function App() {
   const [animeData, setAnimeData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 获取当前季度（默认加载最新季度）
+  // 默认加载最新的季度（依据数据文件倒序）
   useEffect(() => {
-    // 获取当前日期
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth() + 1;
-    
-    // 确定当前季度
-    let season;
-    if (currentMonth >= 1 && currentMonth <= 3) {
-      season = { year: currentYear, month: 1 }; // 一月
-    } else if (currentMonth >= 4 && currentMonth <= 6) {
-      season = { year: currentYear, month: 4 }; // 四月
-    } else if (currentMonth >= 7 && currentMonth <= 9) {
-      season = { year: currentYear, month: 7 }; // 七月
-    } else {
-      season = { year: currentYear, month: 10 }; // 十月
-    }
-    
-    // 设置默认选中的季度
-    setSelectedSeason(season);
+    const initSeason = async () => {
+      try {
+        const seasons = await getSeasons();
+        if (seasons && seasons.length > 0) {
+          setSelectedSeason(seasons[0]);
+        }
+      } catch (e) {
+        console.error('初始化季度失败', e);
+      }
+    };
+    initSeason();
   }, []);
 
   // 当选中的季度变化时，获取相应的动漫数据

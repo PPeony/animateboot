@@ -1,111 +1,43 @@
 // import axios from 'axios';
 
 // 基础URL，实际开发中应该从环境变量获取
-const BASE_URL = 'http://your-api-url.com/api';
+// const BASE_URL = process.env.REACT_APP_API_URL;
 
-// Mock数据
-const mockSeasons = [];
-for (let year = 2020; year <= 2025; year++) {
-  [1, 4, 7, 10].forEach(month => {
-    mockSeasons.push({ year, month });
-  });
-}
+// 使用Webpack的require.context来自动发现并加载季度数据文件
+// 数据文件位于 src/data 目录，命名为 6位年月：YYYYMM.json
+const seasonsContext = require.context('../data', false, /^\.\/\d{6}\.json$/);
 
-const mockAnimeData = {
-  '2020-1': [
-    {
-      animate_name: '冬季番剧1',
-      op: [
-        { op1: '冬季OP1', link1: 'https://example.com/2020-1-op1' }
-      ],
-      ed: [
-        { ed1: '冬季ED1', link1: 'https://example.com/2020-1-ed1' }
-      ]
-    }
-  ],
-  '2020-4': [
-    {
-      animate_name: '春季番剧1',
-      op: [
-        { op1: '春季OP1', link1: 'https://example.com/2020-4-op1' }
-      ],
-      ed: [
-        { ed1: '春季ED1', link1: 'https://example.com/2020-4-ed1' }
-      ]
-    }
-  ],
-  // 添加更多季度的数据...
-  '2025-1': [
-    {
-      animate_name: '2025冬季番剧',
-      op: [
-        { op1: '2025冬季OP1', link1: 'https://example.com/2025-1-op1' },
-        { op2: '2025冬季OP2', link1: 'https://example.com/2025-1-op2' }
-      ],
-      ed: [
-        { ed1: '2025冬季ED1', link1: 'https://example.com/2025-1-ed1' }
-      ]
-    },
-    {
-      animate_name: '2025冬季番剧2',
-      op: [
-        { op1: '2025冬季2-OP1', link1: 'https://example.com/2025-1-2-op1' }
-      ],
-      ed: [
-        { ed1: '2025冬季2-ED1', link1: 'https://example.com/2025-1-2-ed1' },
-        { ed2: '2025冬季2-ED2', link1: 'https://example.com/2025-1-2-ed2' }
-      ]
-    }
-  ]
+// 从文件名解析出 { year, month }
+const parseSeasonFilename = (filename) => {
+  const base = filename.replace('./', '').replace('.js', '');
+  const year = Number(base.slice(0, 4));
+  const month = Number(base.slice(4, 6));
+  return { year, month, key: base };
 };
 
-// 获取所有可用季度
+// 获取所有可用季度（依据目录中的文件名）
 export const getSeasons = async () => {
   try {
-    // 实际API调用
-    // const response = await axios.get(`${BASE_URL}/seasons`);
-    // return response.data;
-    
-    // 使用Mock数据
-    return mockSeasons;
+    const seasons = seasonsContext
+      .keys()
+      .map(parseSeasonFilename)
+      .sort((a, b) => (b.year - a.year) || (b.month - a.month));
+    return seasons;
   } catch (error) {
     console.error('获取季度数据失败:', error);
-    throw error;
+    return [];
   }
 };
 
-// 获取特定季度的动漫数据
+// 获取特定季度的动漫数据（按文件名加载）
 export const getAnimeData = async (year, month) => {
   try {
-    // 实际API调用
-    // const response = await axios.get(`${BASE_URL}/anime?year=${year}&month=${month}`);
-    // return response.data;
-    
-    // 使用Mock数据
-    const key = `${year}-${month}`;
-    // 如果没有该季度的数据，返回一个默认数据
-    return mockAnimeData[key] || [
-      {
-        animate_name: `animate1`,
-        op: [
-          { op1: `${year}-${month} OP1`, link1: `https://example.com/${year}-${month}-op1` }
-        ],
-        ed: [
-          { ed1: `${year}-${month} ED1`, link1: `https://example.com/${year}-${month}-ed1` }
-        ]
-      },
-      {
-        animate_name: `animate2`,
-        op: [
-          { op1: `${year}-${month} OP1`, link1: `https://example.com/${year}-${month}-op1` }
-        ],
-        ed: [
-          { ed1: `${year}-${month} ED1`, link1: `https://example.com/${year}-${month}-ed1` }
-        ]
-      }
-    ];
+    const key = `${year}${String(month).padStart(2, '0')}`; // e.g., 202501
+    const raw = seasonsContext(`./${key}.json`);
+    const data = raw && raw.default ? raw.default : raw; // 兼容不同打包行为
+    return Array.isArray(data) ? data : [];
   } catch (error) {
-    console.error('获取动漫数据失败:', error);
-    throw error;
+    console.warn(`未找到季度数据文件: ${year}-${month}`, error);
+    return [];
   }
 };
