@@ -1,4 +1,5 @@
 # [animateboot.com](animateboot.com) 收集每个季度的新番op和ed
+# 手机没有做额外适配，建议电脑打开
 ## ui展示
 ![ui-light](doc/img/ui-light.png)
 
